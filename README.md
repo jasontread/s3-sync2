@@ -154,7 +154,7 @@ events when local file system changes occur. More performant and efficient than
 the `md5sum` method below. Either `inotifywait` (preferred) OR `md5sum` must be 
 present.
 
-* [md5sum](http://manpages.ubuntu.com/manpages/bionic/man1/md5sum.1.html) - If 
-`inotifywait` is not present, the script will fallback to an 
+* [md5sum | md5](http://manpages.ubuntu.com/manpages/bionic/man1/md5sum.1.html) - 
+If `inotifywait` is not present, the script will fallback to an 
 [md5sum](https://en.wikipedia.org/wiki/Md5sum) method of determining when 
 `<LocalPath>` changes have occurred.

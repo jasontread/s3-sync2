@@ -29,6 +29,9 @@ jobs:
           command: |
             sudo apt-get install -y shellcheck
             shellcheck s3-sync2.sh
+            for src in src/*.sh; do
+              shellcheck $src
+            done
 workflows:
   version: 2
   test:

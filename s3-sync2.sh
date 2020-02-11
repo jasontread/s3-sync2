@@ -203,4 +203,8 @@ if ! eval "aws $AWS_PROFILE_OPTION s3 ls s3://$S3_BUCKET >/dev/null"; then
   exit 1
 fi
 
+# shellcheck disable=SC1090
+for f in "$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/src/*.sh; do
+  . "$f"
+done
 # TODO
