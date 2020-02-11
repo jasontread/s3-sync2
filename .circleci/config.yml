@@ -28,8 +28,10 @@ jobs:
           name: "Tests"
           command: |
             sudo apt-get install -y shellcheck
+            echo "shellcheck s3-sync2.sh"
             shellcheck s3-sync2.sh
             for src in src/*.sh; do
+              echo "shellcheck $src"
               shellcheck $src
             done
 workflows:
