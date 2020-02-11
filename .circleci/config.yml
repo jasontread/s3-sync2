@@ -1,0 +1,39 @@
+defaults: &defaults
+  working_directory: ~/repo
+  docker:
+    - image: circleci/python:latest
+version: 2
+jobs:
+  checkout:
+    <<: *defaults
+    steps:
+      - restore_cache:
+          keys:
+            - source-{{ .Branch }}-{{ .Revision }}
+            - source-{{ .Branch }}-
+            - source-
+      - checkout
+      - save_cache:
+          key: source-{{ .Branch }}-{{ .Revision }}
+          paths:
+            - "~/repo"
+  test:
+    <<: *defaults
+    steps:
+      - restore_cache:
+          key: source-{{ .Branch }}-{{ .Revision }}
+      - attach_workspace:
+          at: ~/repo
+      - run:
+          name: "Tests"
+          command: |
+            sudo apt-get install -y shellcheck
+            shellcheck s3-sync2.sh
+workflows:
+  version: 2
+  test:
+    jobs:
+      - checkout
+      - test:
+          requires:
+            - checkout
