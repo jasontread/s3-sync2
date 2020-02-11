@@ -1,4 +1,6 @@
 # s3-sync2
+[![CircleCI](https://circleci.com/gh/jasontread/s3-sync2.svg?style=svg&circle-token=a487acc2bd234fcdadb0eb556c27a173d1c1123c)](https://circleci.com/gh/jasontread/s3-sync2)
+
 This script facilitates bidirectional synchronization between a local file 
 system path and an [Amazon S3](https://aws.amazon.com/s3/) storage bucket by 
 wrapping the (unidirectional) 
