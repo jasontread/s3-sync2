@@ -77,7 +77,7 @@ function print_msg() {
   esac
   
   if [ "$_level_msg" -le "$_level" ] && [ "$1" ]; then
-    printf "%ds %s > [%s] %s\n" "$_runtime" "$_message_id" "$_level_label" "$1"
+    printf "%ds %s > [%s] %s\\n" "$_runtime" "$_message_id" "$_level_label" "$1"
   fi
 }
 
