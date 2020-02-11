@@ -60,8 +60,6 @@ s3-sync2 [options] <LocalPath> <S3Uri>
 [--dfs | -d]
 [--dfs-lock-timeout | -t] = DFS_LOCK_TIMEOUT
 [--dfs-lock-wait | -w] = DFS_LOCK_WAIT
-[--event-queue | -q] = SQS_EVENT_QUEUE
-[--event-queue-cleanup]
 [--init-sync-down | -i]
 [--init-sync-up | -u]
 [--poll | -p] = POLL_INTERVAL_SECS
@@ -109,23 +107,6 @@ Default is `60` (1 minute)
 
 `--dfs-lock-wait | -w` the maximum time (secs) to wait to acquire a distributed 
 lock before exiting with an error. Default is 180 (3 minutes)
-
-`--event-queue | -q` if set, this script will attempt to enable 
-[S3 Event Notifications](https://docs.aws.amazon.com/AmazonS3/latest/dev/NotificationHowTo.html)
-on the bucket associated with `<S3Uri>` with notifications sent to an 
-[Amazon SQS](https://aws.amazon.com/sqs/) queue with the name specified by this 
-option. If the queue does not exist, an attempt will be made to create it. The
-event queues name specified should be unique for all nodes. Value may contain 
-the token `[uid]` which will be replaced by the node's unique identifier 
-(`/etc/machine-id` if present, or `hostname` otherwise). Event queue names can 
-be a maximum of 80 characters and consist of alphanumeric characters, dashes or 
-underscores only. If not set, `<S3Uri>` to `<LocalPath>` synchronization will 
-trigger after each `--poll` interval is reached as opposed to only when changes 
-occur provided by this option.
-
-`--event-queue-cleanup` if set in conjunction with `--event-queue`, and this 
-script receives a `SIGTERM` signal, then an attempt will be made to delete the
-associated [Amazon SQS](https://aws.amazon.com/sqs/) queue.
 
 `--init-sync-down | -i` if set, `aws s3 sync <S3Uri> <LocalPath>` will be 
 invoked when the script starts

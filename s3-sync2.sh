@@ -1,24 +1,28 @@
 #!/bin/bash
 
+# source scripts in src/*.sh
+# shellcheck disable=SC1090
+for f in "$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/src/*.sh; do
+  . "$f"
+done
+
 # Default arguments
 export AWS_CLI_OPTIONS=
-export AWS_PROFILE_OPTION=
+export AWS_CLI_SYNC_OPTIONS=
 export LOCAL_PATH=
 export S3_BUCKET=
 export S3_URI=
 export CF_DISTRIBUTION_ID=
 export CF_INVALIDATE_ALWAYS=0
 export CF_INVALIDATION_PATHS='/*'
-export DEBUG=0
+export DEBUG='ERROR'
 export DFS=0
+export DFS_LOCK_FILE=
 export DFS_LOCK_TIMEOUT=60
 export DFS_LOCK_WAIT=180
-export SQS_EVENT_QUEUE=
-export SQS_EVENT_QUEUE_CLEANUP=0
 export INIT_SYNC_DOWN=0
 export INIT_SYNC_UP=0
-export POLL_INTERVAL_SECS=30
-
+export POLL_INTERVAL=30
 
 # Script arguments
 while test $# -gt 0; do
@@ -54,7 +58,8 @@ while test $# -gt 0; do
       echo " --cf-inval-paths        Value for the aws cloudfront create-invalidation --paths"
       echo "                         argument. Default is invalidation of all cached objects: /*"
       echo " "
-      echo " --debug                 Show debug output"
+      echo " --debug                 Debug output level - one of ERROR (default), WARN, DEBUG"
+      echo "                         or NONE"
       echo " "
       echo " --dfs | -d              Run as a quasi distributed file system wherein multiple "
       echo "                         nodes can run this script concurrently. When enabled, an "
@@ -72,25 +77,6 @@ while test $# -gt 0; do
       echo " --dfs-lock-wait | -w    the maximum time (secs) to wait to acquire a distributed "
       echo "                         lock before exiting with an error. Default is 180 (3 minutes)"
       echo " "
-      echo " --event-queue | -q      if set, this script will attempt to enable S3 Event "
-      echo "                         Notifications on the bucket associated with <S3Uri>" 
-      echo "                         with notifications sent to an Amazon SQS queue with the "
-      echo "                         name specified by this option. If the queue does not exist,"
-      echo "                         an attempt will be made to create it. The event queues name" 
-      echo "                         specified should be unique for all nodes. Value may contain"
-      echo "                         the token [uid] which will be replaced by the node's unique"
-      echo "                         identifier (/etc/machine-id if present, or hostname "
-      echo "                         otherwise). Event queue names can be a maximum of 80 "
-      echo "                         characters and consist of alphanumeric characters, dashes or "
-      echo "                         underscores only. If not set, <S3Uri> to <LocalPath> "
-      echo "                         synchronization will trigger after each --poll interval is "
-      echo "                         reached as opposed to only when changes occur provided by "
-      echo "                         this option."
-      echo " "
-      echo " --event-queue-cleanup   if set in conjunction with --event-queue, and this script "
-      echo "                         receives a SIGTERM signal, then an attempt will be made to "
-      echo "                         delete the associated Amazon SQS queue."
-      echo " "
       echo " --init-sync-down | -i   if set, aws s3 sync <S3Uri> <LocalPath> will be invoked when"
       echo "                         the script starts"
       echo " "
@@ -99,11 +85,11 @@ while test $# -gt 0; do
       echo " "
       echo " --poll | -p             frequency in seconds to check for both local and remote "
       echo "                         changes and trigger the necessary synchronization - default "
-      echo "                         is 30."
+      echo "                         is 30. Must be between 1 and 3600"
       echo "                         "
       exit 0
       ;;
-    -c|--cf-dist-id)
+    --cf-dist-id|-c)
       shift
       CF_DISTRIBUTION_ID=$1
       shift
@@ -119,47 +105,44 @@ while test $# -gt 0; do
       ;;
     --debug)
       shift
-      DEBUG=1
+      DEBUG=$1
+      shift
       ;;
-    -d|--dfs)
+    --dfs|-d)
       shift
       DFS=1
       ;;
-    -t|--dfs-lock-timeout)
+    --dfs-lock-timeout|-t)
       shift
       DFS_LOCK_TIMEOUT=$1
       shift
       ;;
-    -w)
+    --dfs-lock-wait|-w)
       shift
       DFS_LOCK_WAIT=$1
       shift
       ;;
-    -q|--event-queue)
-      shift
-      SQS_EVENT_QUEUE=$1
-      shift
-      ;;
-    --event-queue-cleanup)
-      shift
-      SQS_EVENT_QUEUE_CLEANUP=1
-      ;;
-    -i|--init-sync-down)
+    --init-sync-down|-i)
       shift
       INIT_SYNC_DOWN=1
       ;;
-    -u|--init-sync-up)
+    --init-sync-up|-u)
       shift
       INIT_SYNC_UP=1
       ;;
-    -p|--poll)
+    --poll|-p)
       shift
-      POLL_INTERVAL_SECS=$1
+      POLL_INTERVAL=$1
       shift
       ;;
     --profile)
       shift
-      export AWS_PROFILE_OPTION=" --profile $1"
+      export AWS_CLI_OPTIONS=" --profile $1$AWS_CLI_OPTIONS"
+      shift
+      ;;
+    --region)
+      shift
+      export AWS_CLI_OPTIONS=" --region $1$AWS_CLI_OPTIONS"
       shift
       ;;
     *)
@@ -168,43 +151,19 @@ while test $# -gt 0; do
       elif [ "${1:0:5}" = "s3://" ]; then
         S3_URI=$1
         S3_BUCKET=$(echo "${S3_URI:5}" | cut -d'/' -f1)
+        [ "$S3_URI" = "s3://$S3_BUCKET" ] && DFS_LOCK_FILE='.s3-sync2.lock' || DFS_LOCK_FILE="${S3_URI/s3:\/\/$S3_BUCKET\//}/.s3-sync2.lock"
       elif [ "${1:0:2}" = "--" ]; then
         AWS_CLI_OPTIONS="$AWS_CLI_OPTIONS $1"
       else
-        AWS_CLI_OPTIONS="$AWS_CLI_OPTIONS \"$1\""
+        AWS_CLI_SYNC_OPTIONS="$AWS_CLI_SYNC_OPTIONS \"$1\""
       fi
       shift
       ;;
   esac
 done
 
+# startup validation/initialization
+s3_sync2_startup
 
-# Both <LocalPath> and <S3Uri> are required
-if [ "$LOCAL_PATH" = "" ] || [ "$S3_URI" = "" ]; then
-  echo "ERROR: <LocalPath> and <S3Uri> are required"
-  exit 1
-fi
-
-# Validate AWS CLI is installed
-if ! command -v aws &>/dev/null; then
-  echo "ERROR: aws cli is not installed"
-  exit 1
-fi
-
-# Validate inotifywait or md5sum are installed
-if ! command -v inotifywait &>/dev/null && ! command -v md5sum &>/dev/null && ! command -v md5 &>/dev/null; then
-  echo "ERROR: either inotifywait or md5sum must be installed"
-  exit 1
-fi
-
-# Validate aws cli credentials and <S3Uri>
-if ! eval "aws $AWS_PROFILE_OPTION s3 ls s3://$S3_BUCKET >/dev/null"; then
-  echo "ERROR: unable to validate <S3Uri> using > aws ${AWS_PROFILE_OPTION} s3 ls s3://${S3_BUCKET}"
-  exit 1
-fi
-
-# shellcheck disable=SC1090
-for f in "$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/src/*.sh; do
-  . "$f"
-done
 # TODO
+
