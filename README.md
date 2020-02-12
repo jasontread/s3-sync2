@@ -49,13 +49,18 @@ costs would be too high, and orchestration of authorizing/deauthorizing
 container instances could be challenging.
 
 ## Usage
-This script does not daemonize - it will run continually until terminated. 
+
+This script uses the following options and arguments. Some may also be set 
+using environment variables (uppercase/underscored values). The scripy does not 
+daemonize - it will run continually until terminated. 
 
 ```
 s3-sync2 [options] <LocalPath> <S3Uri>
+<LocalPath> = LOCAL_PATH
+<S3Uri> = S3_URI
 [--cf-dist-id | -c] = CF_DISTRIBUTION_ID
 [--cf-inval-paths] = CF_INVALIDATION_PATHS
-[--debug]
+[--debug] = DEBUG
 [--dfs | -d]
 [--dfs-lock-timeout | -t] = DFS_LOCK_TIMEOUT
 [--dfs-lock-wait | -w] = DFS_LOCK_WAIT
@@ -87,7 +92,7 @@ on when local changes occur.
 [`aws cloudfront create-invalidation --paths`](https://docs.aws.amazon.com/cli/latest/reference/cloudfront/create-invalidation.html)
 argument. Default is invalidation of all cached objects: `/*`
 
-`--debug` Show debug output
+`--debug` Debug output level - one of ERROR (default), WARN, DEBUG or NONE
 
 `--dfs | -d` Run as a quasi 
 [distributed file system](https://en.wikipedia.org/wiki/Comparison_of_distributed_file_systems)
