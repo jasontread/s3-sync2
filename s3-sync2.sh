@@ -163,7 +163,7 @@ while test $# -gt 0; do
     --md5-skip-path|-s)
       shift
       MD5_SKIP_PATH="${1//\~/$HOME}"
-      for path in $( echo "$MD5_SKIP_PATH" | tr "|" "\n" ); do
+      for path in $( echo "$MD5_SKIP_PATH" | tr "|" "\\n" ); do
         MD5_NOT_PATH_OPT=" -not -path \"$path/*\"$MD5_NOT_PATH_OPT"
       done
       shift
