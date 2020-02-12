@@ -244,12 +244,14 @@ print_msg "Initiating s3-sync2.sh [PID=$$] with the following runtime options:
                                             [AWS_CLI_CMD_SYNC_DOWN=$AWS_CLI_CMD_SYNC_DOWN]
                                             [AWS_CLI_CMD_SYNC_UP=$AWS_CLI_CMD_SYNC_UP]" debug s3-sync2.sh $LINENO
 
-# trap SIGINT and SIGTERM (sets KILLED=1)
-trap cleanup SIGINT
-trap cleanup SIGTERM
-
 # startup validation/initialization
 startup
+
+# trap SIGINT and SIGTERM (sets KILLED=1)
+if [ "$POLL_INTERVAL" -gt 0 ]; then
+  trap cleanup SIGINT
+  trap cleanup SIGTERM
+fi
 
 # Initialization synchronizations
 # Perform downilnk initializaiton if --init-sync-down set
