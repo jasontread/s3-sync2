@@ -206,11 +206,11 @@ while test $# -gt 0; do
       elif [ "${1:0:2}" = "--" ]; then
         AWS_CLI_SYNC_OPTIONS="$AWS_CLI_SYNC_OPTIONS $1"
         last_aws_option=
-      elif [ "$last_aws_option" = "down" ]; then
+      elif [ "$1" ] && [ "$last_aws_option" = "down" ]; then
         AWS_CLI_SYNC_OPTIONS_DOWN="$AWS_CLI_SYNC_OPTIONS_DOWN \"$1\""
-      elif [ "$last_aws_option" = "up" ]; then
+      elif [ "$1" ] && [ "$last_aws_option" = "up" ]; then
         AWS_CLI_SYNC_OPTIONS_UP="$AWS_CLI_SYNC_OPTIONS_UP \"$1\""
-      else
+      elif [ "$1" ]
         AWS_CLI_SYNC_OPTIONS="$AWS_CLI_SYNC_OPTIONS \"$1\""
       fi
       shift
