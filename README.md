@@ -59,10 +59,10 @@ s3-sync2 [options] <LocalPath> <S3Uri>
 [--dfs | -d]
 [--dfs-lock-timeout | -t] = DFS_LOCK_TIMEOUT
 [--dfs-lock-wait | -w] = DFS_LOCK_WAIT
-[--incremental]
 [--init-sync-down | -i]
 [--init-sync-up | -u]
 [--max-failures | -x]
+[--md5-skip-path | -s]
 [--poll | -p] = POLL_INTERVAL
 [--sync-opt-down-*]
 [--sync-opt-up-*]
@@ -97,7 +97,9 @@ additional
 step is required when synchronizing from `<LocalPath>` to `<S3Uri>`. To do so, 
 [S3's read-after-write consistency model](https://docs.aws.amazon.com/AmazonS3/latest/dev/Introduction.html#ConsistencyModel)
 is leveraged in conjunction with an object `PUT` operation where the object 
-contains a unique identifier for the node acquiring the lock.
+contains a unique identifier for the node acquiring the lock. **This script 
+has not been tested nor is it recommended for high IO/concurrency distributed 
+environments**.
 
 `--dfs-lock-timeout | -t` the maximum time (secs) permitted for a distributed 
 lock by another node before it is considered to be stale and force released. 
@@ -105,14 +107,6 @@ Default is `60` (1 minute)
 
 `--dfs-lock-wait | -w` the maximum time (secs) to wait to acquire a distributed 
 lock before exiting with an error. Default is 180 (3 minutes)
-
-`--incremental` by default `aws s3 sync <LocalPath> <S3Uri>` is triggered and 
-invoked by any change in `<LocalPath>` (when detected by `inotifywait` or 
-`md5sum`). If this option is set, and 
-[inotifywait](http://manpages.ubuntu.com/manpages/bionic/man1/inotifywait.1.html)
-is present, then `aws s3 sync <LocalPath> <S3Uri>` is never invoked. Instead, 
-specific changes within `<LocalPath>` detected by `inotifywait` are invoked
-at each `POLL_INTERVAL` (e.g. `aws s3 cp` or `aws s3 rm`)
 
 `--init-sync-down | -i` if set, `aws s3 sync <S3Uri> <LocalPath>` will be 
 invoked when the script starts
@@ -122,6 +116,15 @@ invoked when the script starts
 
 `--max-failures`max sychronization failures before exiting (0 for infinite). 
 Default is 3
+
+`--md5-skip-path | -s` by default, every file in <LocalPath> is used to 
+generate md5 checksums determining when contents have changed. The script 
+cannot translate --include/--exclude sync options to local file paths. Use this 
+option to alter this behavior by specifying 1 or more paths in <LocalPath> to 
+exclude from checksum calculations. Do not repeat this option - if multiple 
+paths should be excluded, use pipes (|) to separate each. Each path designated 
+should be a child of <LocalPath>. Only directories may be specified and they 
+should not include the trailing slash
 
 `--poll | -p` frequency in seconds to check for both local and remote changes 
 and trigger the necessary synchronization - default is 30. Must be between 0 
@@ -146,13 +149,6 @@ The AWS CLI must both be installed and supplied with the necessary credentials
 and [AWS IAM](https://aws.amazon.com/iam/) credentials/permissions required by 
 these commands and the corresponding S3 storage bucket and SQS resources.
 
-* [inotifywait](http://manpages.ubuntu.com/manpages/bionic/man1/inotifywait.1.html)
-OPTIONAL - if installed, will be used to trigger `sync <LocalPath> <S3Uri>` 
-events when local file system changes occur. More performant and efficient than 
-the `md5sum` method below. Either `inotifywait` (preferred) OR `md5sum` must be 
-present.
-
 * [md5sum | md5](http://manpages.ubuntu.com/manpages/bionic/man1/md5sum.1.html) - 
-If `inotifywait` is not present, the script will fallback to an 
-[md5sum](https://en.wikipedia.org/wiki/Md5sum) method of determining when 
-`<LocalPath>` changes have occurred.
+This script uses [md5sum](https://en.wikipedia.org/wiki/Md5sum) to determining 
+when `<LocalPath>` changes have occurred.

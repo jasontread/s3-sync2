@@ -23,10 +23,11 @@ export DFS=0
 export DFS_LOCK_FILE=
 export DFS_LOCK_TIMEOUT=60
 export DFS_LOCK_WAIT=180
-export INCREMENTAL=0
 export INIT_SYNC_DOWN=0
 export INIT_SYNC_UP=0
 export MAX_FAILURES=3
+export MD5_NOT_PATH_OPT=
+export MD5_SKIP_PATH=
 export POLL_INTERVAL=30
 export NODE_UID=
 export KILLED=0
@@ -80,14 +81,6 @@ while test $# -gt 0; do
       echo " --dfs-lock-wait | -w    the maximum time (secs) to wait to acquire a distributed "
       echo "                         lock before exiting with an error. Default is 180 (3 minutes)"
       echo " "
-      echo " --incremental           by default aws s3 sync <LocalPath> <S3Uri> is triggered and "
-      echo "                         invoked by any change in <LocalPath> (when detected by "
-      echo "                         inotifywait or md5sum). If this option is set, and "
-      echo "                         inotifywait is present, then aws s3 sync <LocalPath> <S3Uri> "
-      echo "                         is never invoked. Instead, specific changes within "
-      echo "                         <LocalPath> detected by inotifywait are invoked at each "
-      echo "                         POLL_INTERVAL (e.g. aws s3 cp or aws s3 rm)"
-      echo " "
       echo " --init-sync-down | -i   if set, aws s3 sync <S3Uri> <LocalPath> will be invoked when"
       echo "                         the script starts"
       echo " "
@@ -96,6 +89,17 @@ while test $# -gt 0; do
       echo " "
       echo " --max-failures | -x     max sychronization failures before exiting (0 for infinite)."
       echo "                         Default is 3"
+      echo " "
+      echo " --md5-skip-path | -s    by default, every file in <LocalPath> is used to generate "
+      echo "                         md5 checksums determining when contents have changed. The "
+      echo "                         script cannot translate --include/--exclude sync options"
+      echo "                         to local file paths. Use this option to alter this behavior"
+      echo "                         by specifying 1 or more paths in <LocalPath> to exclude"
+      echo "                         from checksum calculations. Do not repeat this option - if"
+      echo "                         multiple paths should be excluded, use pipes (|) to separate"
+      echo "                         each. Each path designated should be a child of <LocalPath>."
+      echo "                         Only directories may be specified and they should not "
+      echo "                         include the trailing slash"
       echo " "
       echo " --poll | -p             frequency in seconds to check for both local and remote "
       echo "                         changes and trigger the necessary synchronization - default "
@@ -130,6 +134,8 @@ while test $# -gt 0; do
     --dfs|-d)
       shift
       DFS=1
+      DFS_UID="$(get_uid)"
+      AWS_CLI_SYNC_OPTIONS_DOWN=" --exclude \"*/.s3-sync2.lock\"$AWS_CLI_SYNC_OPTIONS_DOWN"
       ;;
     --dfs-lock-timeout|-t)
       shift
@@ -140,10 +146,6 @@ while test $# -gt 0; do
       shift
       DFS_LOCK_WAIT=$1
       shift
-      ;;
-    --incremental)
-      shift
-      INCREMENTAL=1
       ;;
     --init-sync-down|-i)
       shift
@@ -156,6 +158,14 @@ while test $# -gt 0; do
     --max-failures|-x)
       shift
       MAX_FAILURES=$1
+      shift
+      ;;
+    --md5-skip-path|-s)
+      shift
+      MD5_SKIP_PATH="${1//\~/$HOME}"
+      for path in $( echo "$MD5_SKIP_PATH" | tr "|" "\n" ); do
+        MD5_NOT_PATH_OPT=" -not -path \"$path/*\"$MD5_NOT_PATH_OPT"
+      done
       shift
       ;;
     --poll|-p)
@@ -220,13 +230,15 @@ print_msg "Initiating s3-sync2.sh [PID=$$] with the following runtime options:
                                             [CF_INVALIDATION_PATHS=$CF_INVALIDATION_PATHS]
                                             [DEBUG=$DEBUG]
                                             [DFS=$DFS]
+                                            [DFS_LOCK_FILE=$DFS_LOCK_FILE]
                                             [DFS_LOCK_TIMEOUT=$DFS_LOCK_TIMEOUT]
                                             [DFS_LOCK_WAIT=$DFS_LOCK_WAIT]
                                             [DFS_UID=$DFS_UID]
-                                            [INCREMENTAL=$INCREMENTAL]
                                             [INIT_SYNC_DOWN=$INIT_SYNC_DOWN]
                                             [INIT_SYNC_UP=$INIT_SYNC_UP]
                                             [MAX_FAILURES=$MAX_FAILURES]
+                                            [MD5_NOT_PATH_OPT=$MD5_NOT_PATH_OPT]
+                                            [MD5_SKIP_PATH=$MD5_SKIP_PATH]
                                             [POLL_INTERVAL=$POLL_INTERVAL]
                                             [AWS_CLI_OPTIONS=$AWS_CLI_OPTIONS]
                                             [AWS_CLI_CMD_SYNC_DOWN=$AWS_CLI_CMD_SYNC_DOWN]
