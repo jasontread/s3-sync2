@@ -165,10 +165,10 @@ function startup() {
   fi
   
   # Validate polling interval
-  if [[ "$POLL_INTERVAL" =~ ^[1-9][0-9]*$ ]] && [ "$POLL_INTERVAL" -ge 0 ] && [ "$POLL_INTERVAL" -le 3600 ]; then
+  if [[ "$POLL_INTERVAL" =~ ^[0-9]*$ ]] && [ "$POLL_INTERVAL" -ge 0 ] && [ "$POLL_INTERVAL" -le 3600 ]; then
     print_msg "--poll $POLL_INTERVAL is valid" debug startup $LINENO
   else
-    print_msg "--poll $POLL_INTERVAL is invalid - it must be a positive integer between 1-3600" error startup $LINENO
+    print_msg "--poll $POLL_INTERVAL is invalid - it must be a positive integer between 0-3600" error startup $LINENO
     exit 1
   fi
   
