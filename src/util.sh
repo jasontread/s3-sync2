@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# trap SIGINT|SIGTERM function - used for any necessary cleanup before 
+# terminating
+function cleanup() {
+  print_msg "cleanup invoked" debug util.sh $LINENO
+  export KILLED=1
+  kill -SIGINT "$(jobs -p)"
+}
+
 # Returns a unique identifier (UID) for this machine. The unique machine ID is 
 # the first of:
 #   /etc/machine-id (if exists)
@@ -32,18 +40,23 @@ function get_uid() {
 # This function uses the environment variable DEBUG to determine which messages 
 # to display and which to suppress. This variable should be set to one of 
 # ERROR, WARN, DEBUG or NONE. If not set (or an invalid option), ERROR is 
-# assumed
+# assumed. ERROR messages are printed to stderr and all others stdout
 # Start time for print_msg
 export print_msg_start=$SECONDS
 function print_msg() {
+  local _dest
   local _level
   local _level_msg
   local _level_label
   local _message_id
   local _runtime
+  _dest=1
   
-  [ "$3" ] && [ "$4" ] && _message_id="$3 [$4]"
-  [ "$3" ] && _message_id="$3"
+  if [ "$3" ] && [ "$4" ]; then
+    _message_id="$3 [$4]"
+  else
+    _message_id="$3"
+  fi
   _runtime=$(( SECONDS - print_msg_start))
   
   case "$DEBUG" in
@@ -71,25 +84,27 @@ function print_msg() {
       _level_label=WARN
       ;;
     *)
+      _dest=2
       _level_msg=1
       _level_label=ERROR
       ;;
   esac
   
   if [ "$_level_msg" -le "$_level" ] && [ "$1" ]; then
-    printf "%ds %s > [%s] %s\\n" "$_runtime" "$_message_id" "$_level_label" "$1"
+    
+    printf "%-27s > [%-5s] [%2ss] %s\\n" "$_message_id" "$_level_label" "$_runtime" "$1" >&$_dest
   fi
 }
 
 
 # Invoked when the script starts - performs validation checks and initializations
-function s3_sync2_startup() {
+function startup() {
   local _tmp_file
   local _tmp_file_name
   
   # Both <LocalPath> and <S3Uri> are required
   if [ "$LOCAL_PATH" = "" ] || [ "$S3_URI" = "" ]; then
-    print_msg "<LocalPath> and <S3Uri> are required" error util.sh $LINENO
+    print_msg "<LocalPath> and <S3Uri> are required [LOCAL_PATH=$LOCAL_PATH] [S3_URI=$S3_URI]" error util.sh $LINENO
     exit 1
   else
     print_msg "<LocalPath> [$LOCAL_PATH] and <S3Uri> [$S3_URI] are valid" debug util.sh $LINENO
@@ -101,11 +116,25 @@ function s3_sync2_startup() {
     exit 1
   fi
   
+  # Both --init-sync-down and --init-sync-up should not be set
+  if [ "$INIT_SYNC_DOWN" -eq 1 ] && [ "$INIT_SYNC_UP" -eq 1 ]; then
+    print_msg "Both --init-sync-down and --init-sync-up should not be set" error util.sh $LINENO
+    exit 1
+  fi
+  
   # Validate polling interval
-  if [[ "$POLL_INTERVAL" =~ ^[1-9][0-9]*$ ]] && [ "$POLL_INTERVAL" -ge 1 ] && [ "$POLL_INTERVAL" -le 3600 ]; then
+  if [[ "$POLL_INTERVAL" =~ ^[1-9][0-9]*$ ]] && [ "$POLL_INTERVAL" -ge 0 ] && [ "$POLL_INTERVAL" -le 3600 ]; then
     print_msg "--poll $POLL_INTERVAL is valid" debug util.sh $LINENO
   else
     print_msg "--poll $POLL_INTERVAL is invalid - it must be a positive integer between 1-3600" error util.sh $LINENO
+    exit 1
+  fi
+  
+  # Validate max failures
+  if [[ "$MAX_FAILURES" =~ ^[1-9][0-9]*$ ]] && [ "$MAX_FAILURES" -ge 0 ]; then
+    print_msg "--max-failures $MAX_FAILURES is valid" debug util.sh $LINENO
+  else
+    print_msg "--max-failures $MAX_FAILURES is invalid - it must be a positive integer" error util.sh $LINENO
     exit 1
   fi
 
@@ -123,6 +152,14 @@ function s3_sync2_startup() {
   else
     print_msg "either inotifywait or md5sum must be installed" error util.sh $LINENO
     exit 1
+  fi
+  
+  # inotifywait must be installed if --incremental is set
+  if [ "$INCREMENTAL" -eq 1 ] && ! command -v inotifywait &>/dev/null; then
+    print_msg "inotifywait must be installed when --incremental is set" error util.sh $LINENO
+    exit 1
+  elif [ "$INCREMENTAL" -eq 1 ]; then
+    print_msg "incremental changes will be uploaded using inotifywait" debug util.sh $LINENO
   fi
 
   # Validate aws cli credentials and <S3Uri>
@@ -164,7 +201,8 @@ function s3_sync2_startup() {
   
   # Validate DFS locking
   if [ "$DFS" -eq 1 ]; then
-    print_msg "Validating DFS distributed locking [bucket=$S3_BUCKET; lock=$DFS_LOCK_FILE]" debug util.sh $LINENO
+    DFS_UID=$(get_uid)
+    print_msg "Validating DFS distributed locking [bucket=$S3_BUCKET; lock=$DFS_LOCK_FILE; DFS_UID=$DFS_UID]" debug util.sh $LINENO
     if eval s3_distributed_lock "$S3_BUCKET" "$DFS_LOCK_FILE" "$DFS_LOCK_TIMEOUT" "$DFS_LOCK_WAIT"; then
       print_msg "Successfully validated obtaining a DFS lock" debug util.sh $LINENO
       if eval s3_distributed_unlock "$S3_BUCKET" "$DFS_LOCK_FILE"; then
@@ -178,5 +216,14 @@ function s3_sync2_startup() {
       exit 1
     fi
   fi
-  
 }
+
+
+# Primary sychronization function - invoked in a subshell every $POLL_INTERVAL 
+# seconds. This function accepts 1 argument - $1=up|down which, if specified, 
+# limits sychronization to the designation direction. If not specified, both 
+# directions will be synchronized
+function s3_sync2() (
+  sleep 1
+  # TODO
+)

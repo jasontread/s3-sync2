@@ -54,15 +54,18 @@ This script does not daemonize - it will run continually until terminated.
 ```
 s3-sync2 [options] <LocalPath> <S3Uri>
 [--cf-dist-id | -c] = CF_DISTRIBUTION_ID
-[--cf-inval-always]
 [--cf-inval-paths] = CF_INVALIDATION_PATHS
 [--debug]
 [--dfs | -d]
 [--dfs-lock-timeout | -t] = DFS_LOCK_TIMEOUT
 [--dfs-lock-wait | -w] = DFS_LOCK_WAIT
+[--incremental]
 [--init-sync-down | -i]
 [--init-sync-up | -u]
-[--poll | -p] = POLL_INTERVAL_SECS
+[--max-failures | -x]
+[--poll | -p] = POLL_INTERVAL
+[--sync-opt-down-*]
+[--sync-opt-up-*]
 ```
 
 ## Options
@@ -79,11 +82,6 @@ options. As with `aws s3 sync`, the only options required by this script are
 `--cf-dist-id | -c` ID of a CloudFront distributuion to trigger 
 [edge cache invalidations](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html)
 on when local changes occur.
-
-`--cf-inval-always` By default CloudFront invalidations are triggered only by 
-local changes. Setting this flag results in invalidations triggering by both 
-local and remote/bucket changes (as detected by changes to `<LocalPath>` due to 
-down synchronization)
 
 `--cf-inval-paths` Value for the 
 [`aws cloudfront create-invalidation --paths`](https://docs.aws.amazon.com/cli/latest/reference/cloudfront/create-invalidation.html)
@@ -108,14 +106,33 @@ Default is `60` (1 minute)
 `--dfs-lock-wait | -w` the maximum time (secs) to wait to acquire a distributed 
 lock before exiting with an error. Default is 180 (3 minutes)
 
+`--incremental` by default `aws s3 sync <LocalPath> <S3Uri>` is triggered and 
+invoked by any change in `<LocalPath>` (when detected by `inotifywait` or 
+`md5sum`). If this option is set, and 
+[inotifywait](http://manpages.ubuntu.com/manpages/bionic/man1/inotifywait.1.html)
+is present, then `aws s3 sync <LocalPath> <S3Uri>` is never invoked. Instead, 
+specific changes within `<LocalPath>` detected by `inotifywait` are invoked
+at each `POLL_INTERVAL` (e.g. `aws s3 cp` or `aws s3 rm`)
+
 `--init-sync-down | -i` if set, `aws s3 sync <S3Uri> <LocalPath>` will be 
 invoked when the script starts
 
 `--init-sync-up | -u` if set, `aws s3 sync <LocalPath> <S3Uri>` will be 
 invoked when the script starts
 
+`--max-failures`max sychronization failures before exiting (0 for infinite). 
+Default is 3
+
 `--poll | -p` frequency in seconds to check for both local and remote changes 
-and trigger the necessary synchronization - default is 30.
+and trigger the necessary synchronization - default is 30. Must be between 0 
+and 3600. If 0, then script will immediately exit after option validation and 
+initial synchronization
+
+`--sync-opt-down-*` an `aws s3 sync` option that should only be applied when 
+syncing down `<S3Uri>` to `<LocalPath>`. For example, to only apply the 
+`--delete` flag in this direction, set this option `--s3-opt-up-delete`
+
+`--sync-opt-up-*` same as above, but for syncing up `<LocalPath>` to `<S3Uri>`
 
 ## Dependencies
 To avoid bloated container images and complex setup/configurations, this script 

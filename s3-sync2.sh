@@ -7,22 +7,31 @@ for f in "$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/src/*.sh; do
 done
 
 # Default arguments
+export AWS_CLI_CMD_SYNC_DOWN=
+export AWS_CLI_CMD_SYNC_UP=
 export AWS_CLI_OPTIONS=
 export AWS_CLI_SYNC_OPTIONS=
+export AWS_CLI_SYNC_OPTIONS_DOWN=
+export AWS_CLI_SYNC_OPTIONS_UP=
 export LOCAL_PATH=
 export S3_BUCKET=
 export S3_URI=
 export CF_DISTRIBUTION_ID=
-export CF_INVALIDATE_ALWAYS=0
 export CF_INVALIDATION_PATHS='/*'
 export DEBUG='ERROR'
 export DFS=0
 export DFS_LOCK_FILE=
 export DFS_LOCK_TIMEOUT=60
 export DFS_LOCK_WAIT=180
+export INCREMENTAL=0
 export INIT_SYNC_DOWN=0
 export INIT_SYNC_UP=0
+export MAX_FAILURES=3
 export POLL_INTERVAL=30
+export NODE_UID=
+export KILLED=0
+last_aws_option=
+sync_failures=0
 
 # Script arguments
 while test $# -gt 0; do
@@ -49,12 +58,6 @@ while test $# -gt 0; do
       echo " --cf-dist-id | -c       ID of a CloudFront distributuion to trigger edge cache "
       echo "                         invalidations n when local changes occur."
       echo " "
-      echo " --cf-inval-always       By default CloudFront invalidations are triggered only "
-      echo "                         by local changes. Setting this flag results in "
-      echo "                         invalidations triggering by both local and remote/bucket "
-      echo "                         changes (as detected by changes to <LocalPath> due to down "
-      echo "                         synchronization)"
-      echo " "
       echo " --cf-inval-paths        Value for the aws cloudfront create-invalidation --paths"
       echo "                         argument. Default is invalidation of all cached objects: /*"
       echo " "
@@ -77,15 +80,35 @@ while test $# -gt 0; do
       echo " --dfs-lock-wait | -w    the maximum time (secs) to wait to acquire a distributed "
       echo "                         lock before exiting with an error. Default is 180 (3 minutes)"
       echo " "
+      echo " --incremental           by default aws s3 sync <LocalPath> <S3Uri> is triggered and "
+      echo "                         invoked by any change in <LocalPath> (when detected by "
+      echo "                         inotifywait or md5sum). If this option is set, and "
+      echo "                         inotifywait is present, then aws s3 sync <LocalPath> <S3Uri> "
+      echo "                         is never invoked. Instead, specific changes within "
+      echo "                         <LocalPath> detected by inotifywait are invoked at each "
+      echo "                         POLL_INTERVAL (e.g. aws s3 cp or aws s3 rm)"
+      echo " "
       echo " --init-sync-down | -i   if set, aws s3 sync <S3Uri> <LocalPath> will be invoked when"
       echo "                         the script starts"
       echo " "
       echo " --init-sync-up | -u     if set, aws s3 sync <LocalPath> <S3Uri> will be invoked when"
       echo "                         the script starts"
       echo " "
+      echo " --max-failures | -x     max sychronization failures before exiting (0 for infinite)."
+      echo "                         Default is 3"
+      echo " "
       echo " --poll | -p             frequency in seconds to check for both local and remote "
       echo "                         changes and trigger the necessary synchronization - default "
-      echo "                         is 30. Must be between 1 and 3600"
+      echo "                         is 30. Must be between 0 and 3600. If 0, then script will "
+      echo "                         immediately exit after option validation and initial "
+      echo "                         synchronization"
+      echo " "
+      echo " --sync-opt-down-*       An aws s3 sync option that should only be applied when "
+      echo "                         syncing down <S3Uri> to <LocalPath>. For example, to only "
+      echo "                         apply the --delete flag in this direction, set this option "
+      echo "                         --s3-opt-up-delete"
+      echo " "
+      echo " --sync-opt-up-*         Same as above, but for syncing up <LocalPath> to <S3Uri>"
       echo "                         "
       exit 0
       ;;
@@ -93,10 +116,6 @@ while test $# -gt 0; do
       shift
       CF_DISTRIBUTION_ID=$1
       shift
-      ;;
-    --cf-inval-always)
-      shift
-      CF_INVALIDATE_ALWAYS=1
       ;;
     --cf-inval-paths)
       shift
@@ -122,6 +141,10 @@ while test $# -gt 0; do
       DFS_LOCK_WAIT=$1
       shift
       ;;
+    --incremental)
+      shift
+      INCREMENTAL=1
+      ;;
     --init-sync-down|-i)
       shift
       INIT_SYNC_DOWN=1
@@ -130,30 +153,53 @@ while test $# -gt 0; do
       shift
       INIT_SYNC_UP=1
       ;;
+    --max-failures|-x)
+      shift
+      MAX_FAILURES=$1
+      shift
+      ;;
     --poll|-p)
       shift
       POLL_INTERVAL=$1
       shift
       ;;
-    --profile)
+    --endpoint-url|--color|--profile|--region|--ca-bundle|--cli-read-timeout|--cli-connect-timeout)
+      opt="$1"
       shift
-      export AWS_CLI_OPTIONS=" --profile $1$AWS_CLI_OPTIONS"
+      export AWS_CLI_OPTIONS=" $opt $1$AWS_CLI_OPTIONS"
       shift
       ;;
-    --region)
+    --no-verify-ssl|--no-sign-request)
+      export AWS_CLI_OPTIONS=" $1$AWS_CLI_OPTIONS"
       shift
-      export AWS_CLI_OPTIONS=" --region $1$AWS_CLI_OPTIONS"
+      ;;
+    --sync-opt-down-*)
+      AWS_CLI_SYNC_OPTIONS_DOWN="$AWS_CLI_SYNC_OPTIONS_DOWN ${1/sync\-opt\-down\-/}"
+      last_aws_option=down
+      shift
+      ;;
+    --sync-opt-up-*)
+      AWS_CLI_SYNC_OPTIONS_UP="$AWS_CLI_SYNC_OPTIONS_UP ${1/sync\-opt\-up\-/}"
+      last_aws_option=up
       shift
       ;;
     *)
-      if [ -d "$1" ]; then
+      if [ "$1" = "--output" ]; then
+        print_msg "aws --output option is not supported and will be ignored" warn s3-sync2.sh $LINENO
+        shift
+      elif [ -z $LOCAL_PATH ] && [ -d "$1" ]; then
         LOCAL_PATH=$1
-      elif [ "${1:0:5}" = "s3://" ]; then
+      elif [ -z $S3_URI ] && [ "${1:0:5}" = "s3://" ]; then
         S3_URI=$1
         S3_BUCKET=$(echo "${S3_URI:5}" | cut -d'/' -f1)
         [ "$S3_URI" = "s3://$S3_BUCKET" ] && DFS_LOCK_FILE='.s3-sync2.lock' || DFS_LOCK_FILE="${S3_URI/s3:\/\/$S3_BUCKET\//}/.s3-sync2.lock"
       elif [ "${1:0:2}" = "--" ]; then
-        AWS_CLI_OPTIONS="$AWS_CLI_OPTIONS $1"
+        AWS_CLI_SYNC_OPTIONS="$AWS_CLI_SYNC_OPTIONS $1"
+        last_aws_option=
+      elif [ "$last_aws_option" = "down" ]; then
+        AWS_CLI_SYNC_OPTIONS_DOWN="$AWS_CLI_SYNC_OPTIONS_DOWN \"$1\""
+      elif [ "$last_aws_option" = "up" ]; then
+        AWS_CLI_SYNC_OPTIONS_UP="$AWS_CLI_SYNC_OPTIONS_UP \"$1\""
       else
         AWS_CLI_SYNC_OPTIONS="$AWS_CLI_SYNC_OPTIONS \"$1\""
       fi
@@ -162,8 +208,79 @@ while test $# -gt 0; do
   esac
 done
 
+# Full aws cli commands for downlink and uplink synchronization
+AWS_CLI_CMD_SYNC_DOWN="aws$AWS_CLI_OPTIONS s3 sync $S3_URI $LOCAL_PATH$AWS_CLI_SYNC_OPTIONS$AWS_CLI_SYNC_OPTIONS_DOWN"
+AWS_CLI_CMD_SYNC_UP="aws$AWS_CLI_OPTIONS s3 sync $LOCAL_PATH $S3_URI$AWS_CLI_SYNC_OPTIONS$AWS_CLI_SYNC_OPTIONS_UP"
+
+print_msg "Initiating s3-sync2.sh [PID=$$] with the following runtime options: 
+                                            [LOCAL_PATH=$LOCAL_PATH]
+                                            [S3_URI=$S3_URI]
+                                            [S3_BUCKET=$S3_BUCKET]
+                                            [CF_DISTRIBUTION_ID=$CF_DISTRIBUTION_ID]
+                                            [CF_INVALIDATION_PATHS=$CF_INVALIDATION_PATHS]
+                                            [DEBUG=$DEBUG]
+                                            [DFS=$DFS]
+                                            [DFS_LOCK_TIMEOUT=$DFS_LOCK_TIMEOUT]
+                                            [DFS_LOCK_WAIT=$DFS_LOCK_WAIT]
+                                            [DFS_UID=$DFS_UID]
+                                            [INCREMENTAL=$INCREMENTAL]
+                                            [INIT_SYNC_DOWN=$INIT_SYNC_DOWN]
+                                            [INIT_SYNC_UP=$INIT_SYNC_UP]
+                                            [MAX_FAILURES=$MAX_FAILURES]
+                                            [POLL_INTERVAL=$POLL_INTERVAL]
+                                            [AWS_CLI_OPTIONS=$AWS_CLI_OPTIONS]
+                                            [AWS_CLI_CMD_SYNC_DOWN=$AWS_CLI_CMD_SYNC_DOWN]
+                                            [AWS_CLI_CMD_SYNC_UP=$AWS_CLI_CMD_SYNC_UP]" debug s3-sync2.sh $LINENO
+
+# trap SIGINT and SIGTERM (sets KILLED=1)
+trap cleanup SIGINT
+trap cleanup SIGTERM
+
 # startup validation/initialization
-s3_sync2_startup
+startup
 
-# TODO
+# Initialization synchronizations
+# Perform downilnk initializaiton if --init-sync-down set
+if [ "$INIT_SYNC_DOWN" -eq 1 ]; then
+  print_msg "Invoking downlink synchronization for --init-sync-down option" debug s3-sync2.sh $LINENO
+  if eval "$AWS_CLI_CMD_SYNC_DOWN"; then
+    print_msg "Downlink synchronization successful" debug s3-sync2.sh $LINENO
+  else
+    print_msg "Downlink synchronization failed" error s3-sync2.sh $LINENO
+    exit 1
+  fi
+# Perform uplink initializaiton if --init-sync-up set
+elif [ "$INIT_SYNC_UP" -eq 1 ]; then
+  print_msg "Invoking uplink synchronization for --init-sync-up option" debug s3-sync2.sh $LINENO
+  if eval "$AWS_CLI_CMD_SYNC_UP"; then
+    print_msg "Uplink synchronization successful" debug s3-sync2.sh $LINENO
+  else
+    print_msg "Uplink synchronization failed" error s3-sync2.sh $LINENO
+    exit 1
+  fi
+fi
 
+# Use infinite loop to invoke synchronization every $POLL_INTERVAL seconds
+interval=0
+while :; do
+  interval=$(( interval + 1 ))
+  if [ "$POLL_INTERVAL" -eq 0 ]; then
+    print_msg "exiting due to --poll 0" debug s3-sync2.sh $LINENO
+    exit    
+  elif [ "$KILLED" -eq 1 ]; then
+    print_msg "SIGINT or SIGTERM signal received - attempting 1 final uplink synchronization and exiting" warn s3-sync2.sh $LINENO
+    s3_sync2 up
+    exit
+  elif ! s3_sync2; then
+    sync_failures=$(( sync_failures + 1 ))
+    print_msg "Synchronization failed [#$sync_failures of max $MAX_FAILURES]" error s3-sync2.sh $LINENO
+    if [ "$MAX_FAILURES" -gt 0 ] && [ "$sync_failures" -ge "$MAX_FAILURES" ]; then
+      print_msg "Max failures threshold $MAX_FAILURES reached - exiting" error s3-sync2.sh $LINENO
+      exit 1
+    fi
+  else
+    print_msg "Successfully invoked synchronization [#$interval] - sleeping $POLL_INTERVAL secs before next synchronization" debug s3-sync2.sh $LINENO
+  fi
+  sleep "$POLL_INTERVAL" &
+  wait
+done
