@@ -147,7 +147,7 @@ function startup() {
   
   # Validate MD5_SKIP_PATH
   if [ "$MD5_SKIP_PATH" ]; then
-    for path in $( echo "$MD5_SKIP_PATH" | tr "|" "\n" ); do
+    for path in $( echo "$MD5_SKIP_PATH" | tr "|" "\\n" ); do
       if [[ ! "$path" =~ "$LOCAL_PATH".* ]]; then
         print_msg "Invalid --md5-skip-path option - path $path is not in <LocalPath> $LOCAL_PATH" error startup $LINENO
         exit 1
