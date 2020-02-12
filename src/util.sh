@@ -29,7 +29,7 @@ function get_local_checksum() {
   _files_count="${_files_count// /}"
   print_msg "Generating checksum for $LOCAL_PATH using $_md5_cmd [num files: $_files_count]" debug get_local_checksum $LINENO
   if [ "$_files_count" -gt 0 ]; then
-    LOCAL_CHECKSUM=$(eval "find $LOCAL_PATH $MD5_NOT_PATH_OPT -type f -exec $_md5_cmd {} \; | sort -k 2 | $_md5_cmd | tr -s '[:blank:]' ',' | cut -d',' -f1")
+    LOCAL_CHECKSUM=$(eval "find $LOCAL_PATH $MD5_NOT_PATH_OPT -type f -exec $_md5_cmd {} \\; | sort -k 2 | $_md5_cmd | tr -s '[:blank:]' ',' | cut -d',' -f1")
   # If LOCAL_PATH is empty, use the string EMPTY instead
   else
     LOCAL_CHECKSUM=EMPTY
