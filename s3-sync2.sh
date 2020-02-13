@@ -135,7 +135,6 @@ while test $# -gt 0; do
     --dfs|-d)
       shift
       DFS=1
-      DFS_UID="$(get_uid)"
       AWS_CLI_SYNC_OPTIONS_DOWN=" --exclude \"*/.s3-sync2.lock\"$AWS_CLI_SYNC_OPTIONS_DOWN"
       ;;
     --dfs-lock-timeout|-t)
