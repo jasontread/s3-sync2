@@ -233,7 +233,6 @@ print_msg "Initiating s3-sync2.sh [PID=$$] with the following runtime options:
                                             [DFS_LOCK_FILE=$DFS_LOCK_FILE]
                                             [DFS_LOCK_TIMEOUT=$DFS_LOCK_TIMEOUT]
                                             [DFS_LOCK_WAIT=$DFS_LOCK_WAIT]
-                                            [DFS_UID=$DFS_UID]
                                             [INIT_SYNC_DOWN=$INIT_SYNC_DOWN]
                                             [INIT_SYNC_UP=$INIT_SYNC_UP]
                                             [MAX_FAILURES=$MAX_FAILURES]
