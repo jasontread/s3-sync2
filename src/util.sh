@@ -371,6 +371,8 @@ function s3_sync2() (
     # Downlink synchronization
     if [ ! "$1" ] || [ "$1" = "down" ]; then
       if [ "$_uplink_synced" ]; then
+        print_msg "Skipping downlink synchronization because an uplink synchronization has occurred" debug s3_sync2 $LINENO
+      else
         print_msg "Invoking downlink synchronization <S3Uri> to <LocalPath>" debug s3_sync2 $LINENO
         if eval "$AWS_CLI_CMD_SYNC_DOWN"; then
           print_msg "Downlink synchronization successful" debug s3_sync2 $LINENO
@@ -386,8 +388,6 @@ function s3_sync2() (
           print_msg "Downlink synchronization failed" error s3_sync2 $LINENO
           exit 1
         fi
-      else
-        print_msg "Skipping downlink synchronization because an uplink synchronization has occurred" debug s3_sync2 $LINENO
       fi
     else
       print_msg "Skipping downlink synchronization due to type argument [$1]" debug s3_sync2 $LINENO
