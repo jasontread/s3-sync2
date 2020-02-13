@@ -320,7 +320,7 @@ function s3_sync2() (
     
       # Checksums have changed
       if [ "$_checksum_previous" ] && [ "$_checksum_previous" != "$LOCAL_CHECKSUM" ]; then
-        print_msg "Checksums has changed [$LOCAL_CHECKSUM!=$_checksum_previous] - initiating synchronization <LocalPath> to <S3Uri>" debug s3_sync2 $LINENO
+        print_msg "Checksums have changed [$LOCAL_CHECKSUM!=$_checksum_previous] - initiating synchronization <LocalPath> to <S3Uri>" debug s3_sync2 $LINENO
         if [ "$DFS" -ne 1 ] || eval s3_distributed_lock "$S3_BUCKET" "$DFS_LOCK_FILE" "$DFS_LOCK_TIMEOUT" "$DFS_LOCK_WAIT" "$DFS_UID"; then
           # If --delete is set, then generate lock file locally so it is not deleted by the synchronization
           if [ "$DFS" -eq 1 ] && [[ "$AWS_CLI_CMD_SYNC_UP" =~ .*"--delete".* ]]; then
