@@ -64,6 +64,12 @@ function get_uid() {
       print_msg "ioregd UID [$_uid]" debug get_uid $LINENO
     fi
   fi
+  # Fallback - a random number
+  if [ ! "$_uid" ]; then
+    _uid=$RANDOM
+    print_msg "Unable to obtain UID hostname, /etc/machine-id or ioreg - generated random uid [$_uid]" warn get_uid $LINENO
+  fi
+  
   echo "$_uid"
 }
 
