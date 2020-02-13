@@ -239,6 +239,9 @@ function startup() {
   
   # Validate DFS locking
   if [ "$DFS" -eq 1 ]; then
+    if [ ! "$DFS_UID" ]; then
+      DFS_UID="$(get_uid)"
+    fi
     if [ "$DFS_UID" ]; then
       print_msg "Validating DFS distributed locking [bucket=$S3_BUCKET; lock=$DFS_LOCK_FILE; DFS_UID=$DFS_UID]" debug startup $LINENO
       if eval s3_distributed_lock "$S3_BUCKET" "$DFS_LOCK_FILE" "$DFS_LOCK_TIMEOUT" "$DFS_LOCK_WAIT" "$DFS_UID"; then

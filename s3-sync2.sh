@@ -23,6 +23,7 @@ export S3_BUCKET=
 export DFS_LOCK_FILE=
 [ "$DFS_LOCK_TIMEOUT" ] || export DFS_LOCK_TIMEOUT=60
 [ "$DFS_LOCK_WAIT" ] || export DFS_LOCK_WAIT=180
+export DFS_UID=
 export INIT_SYNC_DOWN=0
 export INIT_SYNC_UP=0
 export MAX_FAILURES=3
