@@ -306,6 +306,7 @@ function s3_sync2() (
       local _files_count
       local _lock_file
       local _md5_cmd
+      local _uplink_synced
     
       # Determine current checksum
       get_local_checksum
@@ -336,6 +337,7 @@ function s3_sync2() (
             if [ -f "$_lock_file" ]; then rm -f "$_lock_file"; fi
             s3_distributed_unlock "$S3_BUCKET" "$DFS_LOCK_FILE" "$DFS_UID"
             print_msg "Uplink synchronization successful" debug s3_sync2 $LINENO
+            _uplink_synced=1
             # Validate CloudFront distribution
             if [ "$CF_DISTRIBUTION_ID" != "" ]; then
               print_msg "Issuing CloudFront invalidation [distribution=$CF_DISTRIBUTION_ID] [paths=$CF_INVALIDATION_PATHS]" debug startup $LINENO
@@ -368,20 +370,24 @@ function s3_sync2() (
     
     # Downlink synchronization
     if [ ! "$1" ] || [ "$1" = "down" ]; then
-      print_msg "Invoking downlink synchronization <S3Uri> to <LocalPath>" debug s3_sync2 $LINENO
-      if eval "$AWS_CLI_CMD_SYNC_DOWN"; then
-        print_msg "Downlink synchronization successful" debug s3_sync2 $LINENO
+      if [ "$_uplink_synced" ]; then
+        print_msg "Invoking downlink synchronization <S3Uri> to <LocalPath>" debug s3_sync2 $LINENO
+        if eval "$AWS_CLI_CMD_SYNC_DOWN"; then
+          print_msg "Downlink synchronization successful" debug s3_sync2 $LINENO
         
-        # Determine new checksum
-        get_local_checksum
+          # Determine new checksum
+          get_local_checksum
         
-        if [ ! "$LOCAL_CHECKSUM" ]; then
-          print_msg "Unable to determine $LOCAL_PATH checksum" error s3_sync2 $LINENO
+          if [ ! "$LOCAL_CHECKSUM" ]; then
+            print_msg "Unable to determine $LOCAL_PATH checksum" error s3_sync2 $LINENO
+            exit 1
+          fi
+        else
+          print_msg "Downlink synchronization failed" error s3_sync2 $LINENO
           exit 1
         fi
       else
-        print_msg "Downlink synchronization failed" error s3_sync2 $LINENO
-        exit 1
+        print_msg "Skipping downlink synchronization because an uplink synchronization has occurred" debug s3_sync2 $LINENO
       fi
     else
       print_msg "Skipping downlink synchronization due to type argument [$1]" debug s3_sync2 $LINENO
