@@ -61,7 +61,7 @@ s3-sync2 [options] <LocalPath> <S3Uri>
 [--cf-dist-id | -c] = CF_DISTRIBUTION_ID
 [--cf-inval-paths] = CF_INVALIDATION_PATHS
 [--debug] = DEBUG
-[--dfs | -d]
+[--dfs | -d] DFS
 [--dfs-lock-timeout | -t] = DFS_LOCK_TIMEOUT
 [--dfs-lock-wait | -w] = DFS_LOCK_WAIT
 [--init-sync-down | -i]
