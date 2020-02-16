@@ -265,10 +265,18 @@ if [ "$INIT_SYNC_DOWN" -eq 1 ]; then
 # Perform uplink initializaiton if --init-sync-up set
 elif [ "$INIT_SYNC_UP" -eq 1 ]; then
   print_msg "Invoking uplink synchronization for --init-sync-up option" debug s3-sync2.sh $LINENO
-  if eval "$AWS_CLI_CMD_SYNC_UP"; then
-    print_msg "Uplink synchronization successful" debug s3-sync2.sh $LINENO
+  if [ "$DFS" -ne 1 ] || eval s3_distributed_lock "$S3_BUCKET" "$DFS_LOCK_FILE" "$DFS_LOCK_TIMEOUT" "$DFS_LOCK_WAIT" "$DFS_UID"; then
+    if eval "$AWS_CLI_CMD_SYNC_UP"; then
+      print_msg "Uplink synchronization successful" debug s3-sync2.sh $LINENO
+      if [ "$DFS" -eq 1 ]; then
+        s3_distributed_unlock "$S3_BUCKET" "$DFS_LOCK_FILE" "$DFS_UID"
+      fi
+    else
+      print_msg "Uplink synchronization failed" error s3-sync2.sh $LINENO
+      exit 1
+    fi
   else
-    print_msg "Uplink synchronization failed" error s3-sync2.sh $LINENO
+    print_msg "Uplink synchronization failed - unable to obtain DFS distributed lock" error s3_sync2.sh $LINENO
     exit 1
   fi
 fi
