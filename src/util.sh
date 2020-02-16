@@ -324,7 +324,7 @@ function s3_sync2() (
         print_msg "Checksums have changed [$LOCAL_CHECKSUM!=$_checksum_previous] - initiating synchronization <LocalPath> to <S3Uri>" debug s3_sync2 $LINENO
         if [ "$DFS" -ne 1 ] || eval s3_distributed_lock "$S3_BUCKET" "$DFS_LOCK_FILE" "$DFS_LOCK_TIMEOUT" "$DFS_LOCK_WAIT" "$DFS_UID"; then
           # If --delete is set, then generate lock file locally so it is not deleted by the synchronization
-          if [ "$DFS" -eq 1 ] && [[ "$AWS_CLI_CMD_SYNC_UP" =~ *."--delete".* ]]; then
+          if [ "$DFS" -eq 1 ] && [[ "$AWS_CLI_CMD_SYNC_UP" == *"--delete"* ]]; then
             _lock_file="$LOCAL_PATH/.s3-sync2.lock"
             print_msg "Downloading lock file locally [$_lock_file] so it is not deleted remotely" debug s3_sync2 $LINENO
             if eval "aws $AWS_CLI_OPTIONS s3 cp s3://$S3_BUCKET/$DFS_LOCK_FILE $_lock_file"; then
