@@ -75,8 +75,9 @@ function s3_distributed_lock() (
         if [ "$_object" = "$2" ]; then
           print_msg "Found existing lock - checking contents" debug s3_distributed_lock $LINENO
           if ! eval "aws $AWS_CLI_OPTIONS s3api get-object --bucket $1 --key $_object $_lock_file &>/dev/null" || ! [ -f "$_lock_file" ] ; then
-            print_msg "Unable to get-object > aws $AWS_CLI_OPTIONS s3api get-object --bucket $1 --key $_object $_lock_file" error s3_distributed_lock $LINENO
+            print_msg "Unable to get-object > aws $AWS_CLI_OPTIONS s3api get-object --bucket $1 --key $_object $_lock_file - lock may have been deleted" warn s3_distributed_lock $LINENO
             _status=1
+            _try_wait=1
           else
             print_msg "Successfully downloaded lock file to $_lock_file" debug s3_distributed_lock $LINENO
             if diff "$_uid_file" "$_lock_file" &>/dev/null; then
@@ -84,6 +85,7 @@ function s3_distributed_lock() (
               if ! eval "aws $AWS_CLI_OPTIONS s3api delete-object --bucket $1 --key $_object &>/dev/null"; then
                 print_msg "Unable to delete stale lock file" error s3_distributed_lock $LINENO
                 _status=1
+                _try_wait=1
               else
                 print_msg "Stale lock file deleted successfully" debug s3_distributed_lock $LINENO
               fi
@@ -117,6 +119,7 @@ function s3_distributed_lock() (
         else
           print_msg "Unable to get-object" error s3_distributed_lock $LINENO
           _status=1
+          _try_wait=1
         fi
       else
         print_msg "Unable to put-object" error s3_distributed_lock $LINENO
