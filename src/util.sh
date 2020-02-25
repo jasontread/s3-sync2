@@ -164,7 +164,7 @@ function startup() {
   # Validate MD5_SKIP_PATH
   if [ "$MD5_SKIP_PATH" ]; then
     for path in $( echo "$MD5_SKIP_PATH" | tr "|" "\\n" ); do
-      if [[ ! "$path" =~ "$LOCAL_PATH".* ]]; then
+      if [[ ! "$path" == "$LOCAL_PATH"* ]]; then
         print_msg "Invalid --md5-skip-path option - path $path is not in <LocalPath> $LOCAL_PATH" error startup $LINENO
         exit 1
       elif [ "${path: -1}" = "/" ]; then
@@ -176,7 +176,12 @@ function startup() {
   
   # Both --init-sync-down and --init-sync-up should not be set
   if [ "$INIT_SYNC_DOWN" -eq 1 ] && [ "$INIT_SYNC_UP" -eq 1 ]; then
-    print_msg "Both --init-sync-down and --init-sync-up should not be set" error startup $LINENO
+    print_msg "--init-sync-down and --init-sync-up should not be set together" error startup $LINENO
+    exit 1
+  fi
+  
+  if [ "$ONLY_DOWN" -eq 1 ] && [ "$ONLY_UP" -eq 1 ]; then
+    print_msg "--only-down and --only-up should not be set together" error startup $LINENO
     exit 1
   fi
   

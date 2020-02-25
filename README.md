@@ -68,6 +68,8 @@ s3-sync2 [options] <LocalPath> <S3Uri>
 [--init-sync-up | -u]
 [--max-failures | -x]
 [--md5-skip-path | -s]
+[--only-down]
+[--only-up]
 [--poll | -p] = POLL_INTERVAL
 [--sync-opt-down-*]
 [--sync-opt-up-*]
@@ -131,6 +133,10 @@ paths should be excluded, use pipes (|) to separate each. Each path designated
 should be a child of <LocalPath>. Only directories may be specified and they 
 should not include the trailing slash
 
+`--only-down` Only synchronize from <S3Uri> to <LocalPath>
+
+`--only-up` Only synchronize from <LocalPath> to <S3Uri>
+
 `--poll | -p` frequency in seconds to check for both local and remote changes 
 and trigger the necessary synchronization - default is 30. Must be between 0 
 and 3600. If 0, then script will immediately exit after option validation and 
@@ -138,7 +144,7 @@ initial synchronization
 
 `--sync-opt-down-*` an `aws s3 sync` option that should only be applied when 
 syncing down `<S3Uri>` to `<LocalPath>`. For example, to only apply the 
-`--delete` flag in this direction, set this option `--s3-opt-up-delete`
+`--delete` flag in this direction, set this option `--sync-opt-down-delete`
 
 `--sync-opt-up-*` same as above, but for syncing up `<LocalPath>` to `<S3Uri>`
 
@@ -147,12 +153,12 @@ To avoid bloated container images and complex setup/configurations, this script
 intentionally utilizes minimal dependencies.
 
 * [AWS Command Line Interface](https://aws.amazon.com/cli/) - this script 
-uses `aws s3`, [`aws sqs`](https://docs.aws.amazon.com/cli/latest/reference/sqs/) 
-and [`aws cloudfront`](https://docs.aws.amazon.com/cli/latest/reference/cloudfront/) 
-(`sqs` and `cloudfront` are only utilized if the associated options are set). 
+uses `aws s3`, and 
+[`aws cloudfront`](https://docs.aws.amazon.com/cli/latest/reference/cloudfront/) 
+(`cloudfront` is only utilized if the associated options are set). 
 The AWS CLI must both be installed and supplied with the necessary credentials 
 and [AWS IAM](https://aws.amazon.com/iam/) credentials/permissions required by 
-these commands and the corresponding S3 storage bucket and SQS resources.
+these commands and the corresponding S3 storage bucket.
 
 * [md5sum | md5](http://manpages.ubuntu.com/manpages/bionic/man1/md5sum.1.html) - 
 This script uses [md5sum](https://en.wikipedia.org/wiki/Md5sum) to determining 

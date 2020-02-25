@@ -32,6 +32,8 @@ export MD5_SKIP_PATH=
 [ "$POLL_INTERVAL" ] || export POLL_INTERVAL=30
 export NODE_UID=
 export KILLED=0
+export ONLY_DOWN=0
+export ONLY_UP=0
 last_aws_option=
 sync_failures=0
 
@@ -102,6 +104,10 @@ while test $# -gt 0; do
       echo "                         Only directories may be specified and they should not "
       echo "                         include the trailing slash"
       echo " "
+      echo " --only-down             Only synchronize from <S3Uri> to <LocalPath>"
+      echo " "
+      echo " --only-up               Only synchronize from <LocalPath> to <S3Uri>"
+      echo " "
       echo " --poll | -p             frequency in seconds to check for both local and remote "
       echo "                         changes and trigger the necessary synchronization - default "
       echo "                         is 30. Must be between 0 and 3600. If 0, then script will "
@@ -167,6 +173,14 @@ while test $# -gt 0; do
         MD5_NOT_PATH_OPT=" -not -path \"$path/*\"$MD5_NOT_PATH_OPT"
       done
       shift
+      ;;
+    --only-down)
+      shift
+      ONLY_DOWN=1
+      ;;
+    --only-up)
+      shift
+      ONLY_UP=1
       ;;
     --poll|-p)
       shift
@@ -254,7 +268,7 @@ fi
 
 # Initialization synchronizations
 # Perform downilnk initializaiton if --init-sync-down set
-if [ "$INIT_SYNC_DOWN" -eq 1 ]; then
+if [ "$INIT_SYNC_DOWN" -eq 1 ] && [ "$ONLY_UP" -ne 1 ]; then
   print_msg "Invoking downlink synchronization for --init-sync-down option" debug s3-sync2.sh $LINENO
   if eval "$AWS_CLI_CMD_SYNC_DOWN"; then
     print_msg "Downlink synchronization successful" debug s3-sync2.sh $LINENO
@@ -263,7 +277,7 @@ if [ "$INIT_SYNC_DOWN" -eq 1 ]; then
     exit 1
   fi
 # Perform uplink initializaiton if --init-sync-up set
-elif [ "$INIT_SYNC_UP" -eq 1 ]; then
+elif [ "$INIT_SYNC_UP" -eq 1 ] && [ "$ONLY_DOWN" -ne 1 ]; then
   print_msg "Invoking uplink synchronization for --init-sync-up option" debug s3-sync2.sh $LINENO
   if [ "$DFS" -ne 1 ] || eval s3_distributed_lock "$S3_BUCKET" "$DFS_LOCK_FILE" "$DFS_LOCK_TIMEOUT" "$DFS_LOCK_WAIT" "$DFS_UID"; then
     if eval "$AWS_CLI_CMD_SYNC_UP"; then
@@ -283,16 +297,25 @@ fi
 
 # Use infinite loop to invoke synchronization every $POLL_INTERVAL seconds
 interval=0
+direction=
+if [ "$ONLY_DOWN" -eq 1 ]; then
+  direction=down
+elif [ "$ONLY_UP" -eq 1 ]; then
+  direction=up
+fi
+
 while :; do
   interval=$(( interval + 1 ))
   if [ "$POLL_INTERVAL" -eq 0 ]; then
     print_msg "exiting due to --poll 0" debug s3-sync2.sh $LINENO
     exit    
   elif [ "$KILLED" -eq 1 ]; then
-    print_msg "SIGINT or SIGTERM signal received - attempting 1 final uplink synchronization and exiting" warn s3-sync2.sh $LINENO
-    s3_sync2 up
+    if [ "$ONLY_DOWN" -ne 1 ]; then
+      print_msg "SIGINT or SIGTERM signal received - attempting 1 final uplink synchronization and exiting" warn s3-sync2.sh $LINENO
+      s3_sync2 up
+    fi
     exit
-  elif ! s3_sync2; then
+  elif ! s3_sync2 "$direction"; then
     sync_failures=$(( sync_failures + 1 ))
     print_msg "Synchronization failed [#$sync_failures of max $MAX_FAILURES]" error s3-sync2.sh $LINENO
     if [ "$MAX_FAILURES" -gt 0 ] && [ "$sync_failures" -ge "$MAX_FAILURES" ]; then
