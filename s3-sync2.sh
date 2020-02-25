@@ -323,6 +323,7 @@ while :; do
       exit 1
     fi
   else
+    sync_failures=0
     print_msg "Successfully invoked synchronization [#$interval] - sleeping $POLL_INTERVAL secs before next synchronization" debug s3-sync2.sh $LINENO
   fi
   sleep "$POLL_INTERVAL" &
