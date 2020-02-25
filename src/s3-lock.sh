@@ -53,7 +53,7 @@ function s3_distributed_lock() (
   _status=0
   [ "$3" ] && _timeout="$3" || _timeout=60
   _try_wait=0
-  [ "$5" ] && _uid="$5" || _uid=$(get_uid)
+  [ "$5" ] && _uid="$5" || _uid=$(dfs_uid)
   [ "$4" ] && _wait="$4" || _wait=180
   
   if [ "$1" != "" ] && [ "$2" != "" ]; then
@@ -169,7 +169,7 @@ function s3_distributed_unlock() (
   
   # Defaults values
   _status=0
-  [ "$3" ] && _uid="$3" || _uid=$(get_uid)
+  [ "$3" ] && _uid="$3" || _uid=$(dfs_uid)
   
   if [ "$1" != "" ] && [ "$2" != "" ]; then
     _lock_file=$(mktemp)
