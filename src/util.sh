@@ -248,7 +248,7 @@ function startup() {
   fi
   
   # Validate CloudFront distribution
-  if [ "$CF_DISTRIBUTION_ID" != "" ]; then
+  if [ "$CF_DISTRIBUTION_ID" != "" ] && [ "$CF_DISTRIBUTION_ID" != "0" ]; then
     print_msg "Validating CloudFront distribution [id=$CF_DISTRIBUTION_ID]" debug startup $LINENO
     if eval "aws $AWS_CLI_OPTIONS cloudfront get-distribution --id $CF_DISTRIBUTION_ID" >/dev/null; then
       print_msg "Successfully validated CloudFront distribution" debug startup $LINENO
@@ -346,7 +346,7 @@ function s3_sync2() (
             print_msg "Uplink synchronization successful" debug s3_sync2 $LINENO
             _uplink_synced=1
             # Validate CloudFront distribution
-            if [ "$CF_DISTRIBUTION_ID" != "" ]; then
+            if [ "$CF_DISTRIBUTION_ID" != "" ] && [ "$CF_DISTRIBUTION_ID" != "0" ]; then
               print_msg "Issuing CloudFront invalidation [distribution=$CF_DISTRIBUTION_ID] [paths=$CF_INVALIDATION_PATHS]" debug startup $LINENO
               if eval "aws $AWS_CLI_OPTIONS cloudfront create-invalidation --distribution-id $CF_DISTRIBUTION_ID --paths \"$CF_INVALIDATION_PATHS\"" >/dev/null; then
                 print_msg "Invalidation successful" debug startup $LINENO
