@@ -24,6 +24,7 @@ export DFS_LOCK_FILE=
 [ "$DFS_LOCK_TIMEOUT" ] || export DFS_LOCK_TIMEOUT=60
 [ "$DFS_LOCK_WAIT" ] || export DFS_LOCK_WAIT=180
 export DFS_UID=
+export DFS_UID_HOSTNAME=0
 export INIT_SYNC_DOWN=0
 export INIT_SYNC_UP=0
 export MAX_FAILURES=3
@@ -83,6 +84,8 @@ while test $# -gt 0; do
       echo " "
       echo " --dfs-lock-wait | -w    the maximum time (secs) to wait to acquire a distributed "
       echo "                         lock before exiting with an error. Default is 180 (3 minutes)"
+      echo " "
+      echo " --dfs-uid-hostname      use hostname as the DFS UID instead of /etc/machine-id"
       echo " "
       echo " --init-sync-down | -i   if set, aws s3 sync <S3Uri> <LocalPath> will be invoked when"
       echo "                         the script starts"
@@ -152,6 +155,10 @@ while test $# -gt 0; do
       shift
       DFS_LOCK_WAIT=$1
       shift
+      ;;
+    --dfs-uid-hostname)
+      shift
+      DFS_UID_HOSTNAME=1
       ;;
     --init-sync-down|-i)
       shift

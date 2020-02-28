@@ -14,6 +14,7 @@ function cleanup() {
 #   IOPlatformExpertDevice (OS X)
 #   hostname
 #   random number
+# If $1 = 1, then hostname will be used always
 #
 function dfs_uid() {
   if [ -z "$DFS_UID" ]; then
@@ -22,7 +23,7 @@ function dfs_uid() {
   
     _uid=$(hostname)
     print_msg "Initial hostname UID [$_uid]" debug dfs_uid $LINENO
-    if [ -f /etc/machine-id ]; then
+    if [ "$1" != "1" ] && [ -f /etc/machine-id ]; then
       _tmp=$(cat /etc/machine-id)
       if [ "$_tmp" ]; then
         _uid="$_tmp"
@@ -30,7 +31,7 @@ function dfs_uid() {
       else
         print_msg "Unable to obtain UID from /etc/machine-id" warn dfs_uid $LINENO
       fi
-    else
+    elif [ "$1" != "1" ]; then
       _tmp=$(ioreg -rd1 -c IOPlatformExpertDevice 2>/dev/null | awk '/IOPlatformUUID/ { split($0, line, "\""); printf("%s\n", line[4]); }')
       if [ "$_tmp" ]; then
         _uid="$_tmp"
@@ -260,7 +261,7 @@ function startup() {
   
   # Validate DFS locking
   if [ "$DFS" -eq 1 ]; then
-    dfs_uid
+    dfs_uid "$DFS_UID_HOSTNAME"
     if [ "$DFS_UID" ]; then
       print_msg "Validating DFS distributed locking [bucket=$S3_BUCKET; lock=$DFS_LOCK_FILE; DFS_UID=$DFS_UID]" debug startup $LINENO
       if eval s3_distributed_lock "$S3_BUCKET" "$DFS_LOCK_FILE" "$DFS_LOCK_TIMEOUT" "$DFS_LOCK_WAIT" "$DFS_UID"; then
