@@ -216,7 +216,7 @@ while test $# -gt 0; do
       ;;
     *)
       if [ "$1" = "--output" ]; then
-        print_msg "aws --output option is not supported and will be ignored" warn s3-sync2.sh $LINENO
+        print_msg "aws --output option is not supported and will be ignored" warning s3-sync2.sh $LINENO
         shift
       elif [ -z $LOCAL_PATH ] && [ -d "$1" ]; then
         LOCAL_PATH=$1
@@ -318,7 +318,7 @@ while :; do
     exit    
   elif [ "$KILLED" -eq 1 ]; then
     if [ "$ONLY_DOWN" -ne 1 ]; then
-      print_msg "SIGINT or SIGTERM signal received - attempting 1 final uplink synchronization and exiting" warn s3-sync2.sh $LINENO
+      print_msg "SIGINT or SIGTERM signal received - attempting 1 final uplink synchronization and exiting" warning s3-sync2.sh $LINENO
       s3_sync2 up
     fi
     exit

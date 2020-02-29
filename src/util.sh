@@ -29,7 +29,7 @@ function dfs_uid() {
         _uid="$_tmp"
         print_msg "/etc/machine-id UID [$_uid]" debug dfs_uid $LINENO
       else
-        print_msg "Unable to obtain UID from /etc/machine-id" warn dfs_uid $LINENO
+        print_msg "Unable to obtain UID from /etc/machine-id" warning dfs_uid $LINENO
       fi
     elif [ "$1" != "1" ]; then
       _tmp=$(ioreg -rd1 -c IOPlatformExpertDevice 2>/dev/null | awk '/IOPlatformUUID/ { split($0, line, "\""); printf("%s\n", line[4]); }')
@@ -41,7 +41,7 @@ function dfs_uid() {
     # Fallback - a random number
     if [ ! "$_uid" ]; then
       _uid=$RANDOM
-      print_msg "Unable to obtain UID hostname, /etc/machine-id or ioreg - generated random uid [$_uid]" warn dfs_uid $LINENO
+      print_msg "Unable to obtain UID hostname, /etc/machine-id or ioreg - generated random uid [$_uid]" warning dfs_uid $LINENO
     fi
   fi
   export DFS_UID="$_uid"
@@ -112,7 +112,7 @@ function print_msg() {
     DEBUG|debug)
       _level=3
       ;;
-    WARN|warn)
+    WARNING|warning)
       _level=2
       ;;
     *)
@@ -125,7 +125,7 @@ function print_msg() {
       _level_msg=3
       _level_label=DEBUG
       ;;
-    WARN|warn)
+    WARNING|warning)
       _level_msg=2
       _level_label=WARN
       ;;
@@ -336,7 +336,7 @@ function s3_sync2() (
             if eval "aws $AWS_CLI_OPTIONS s3 cp s3://$S3_BUCKET/$DFS_LOCK_FILE $_lock_file"; then
               print_msg "Lock file downloaded successfully" debug s3_sync2 $LINENO
             else
-              print_msg "Unable to download lock file" warn s3_sync2 $LINENO
+              print_msg "Unable to download lock file" warning s3_sync2 $LINENO
             fi
           fi
           if eval "$AWS_CLI_CMD_SYNC_UP"; then
@@ -352,7 +352,7 @@ function s3_sync2() (
               if eval "aws $AWS_CLI_OPTIONS cloudfront create-invalidation --distribution-id $CF_DISTRIBUTION_ID --paths \"$CF_INVALIDATION_PATHS\"" >/dev/null; then
                 print_msg "Invalidation successful" debug startup $LINENO
               else
-                print_msg "Invalidation failed" warn startup $LINENO
+                print_msg "Invalidation failed" warning startup $LINENO
               fi
             fi
           else

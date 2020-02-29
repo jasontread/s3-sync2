@@ -75,13 +75,13 @@ function s3_distributed_lock() (
         if [ "$_object" = "$2" ]; then
           print_msg "Found existing lock - checking contents" debug s3_distributed_lock $LINENO
           if ! eval "aws $AWS_CLI_OPTIONS s3api get-object --bucket $1 --key $_object $_lock_file &>/dev/null" || ! [ -f "$_lock_file" ] ; then
-            print_msg "Unable to get-object > aws $AWS_CLI_OPTIONS s3api get-object --bucket $1 --key $_object $_lock_file - lock may have been deleted" warn s3_distributed_lock $LINENO
+            print_msg "Unable to get-object > aws $AWS_CLI_OPTIONS s3api get-object --bucket $1 --key $_object $_lock_file - lock may have been deleted" warning s3_distributed_lock $LINENO
             _status=1
             _try_wait=1
           else
             print_msg "Successfully downloaded lock file to $_lock_file" debug s3_distributed_lock $LINENO
             if diff "$_uid_file" "$_lock_file" &>/dev/null; then
-              print_msg "Stale lock file for this UID discovered [s3://$1/$_object] - deleting" warn s3_distributed_lock $LINENO
+              print_msg "Stale lock file for this UID discovered [s3://$1/$_object] - deleting" warning s3_distributed_lock $LINENO
               if ! eval "aws $AWS_CLI_OPTIONS s3api delete-object --bucket $1 --key $_object &>/dev/null"; then
                 print_msg "Unable to delete stale lock file" error s3_distributed_lock $LINENO
                 _status=1
@@ -91,7 +91,7 @@ function s3_distributed_lock() (
               fi
             else
               _lock_uid=$(cat "$_lock_file")
-              print_msg "Existing lock file UID [$_lock_uid] does not match this machine [$_uid] - lock unsuccessful" warn s3_distributed_lock $LINENO
+              print_msg "Existing lock file UID [$_lock_uid] does not match this machine [$_uid] - lock unsuccessful" warning s3_distributed_lock $LINENO
               _status=1
               _try_wait=1
             fi
@@ -112,7 +112,7 @@ function s3_distributed_lock() (
           if diff "$_uid_file" "$_lock_file" &>/dev/null; then
             print_msg "UID matches - lock successful" debug s3_distributed_lock $LINENO
           else
-            print_msg "UID does not match - lock unsuccessful" warn s3_distributed_lock $LINENO
+            print_msg "UID does not match - lock unsuccessful" warning s3_distributed_lock $LINENO
             _status=1
             _try_wait=1
           fi
