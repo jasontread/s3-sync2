@@ -126,16 +126,16 @@ Default is 3
 
 `--md5-skip-path | -s` by default, every file in `<LocalPath>` is used to 
 generate md5 checksums determining when contents have changed. The script 
-cannot translate `--include/--exclude` sync options to local file paths. Use this 
-option to alter this behavior by specifying 1 or more paths in <LocalPath> to 
-exclude from checksum calculations. Do not repeat this option - if multiple 
-paths should be excluded, use pipes (|) to separate each. Each path designated 
-should be a child of <LocalPath>. Only directories may be specified and they 
+does not translate `--include/--exclude` `sync` arguments to local file paths. Use this 
+option to alter the behavior by specifying one or more paths in `<LocalPath>` to 
+exclude from the checksum. Do not repeat this option - if multiple 
+paths should be excluded, use pipes (`|`) to separate each. Each path designated 
+should be a child of `<LocalPath>`. Only directories may be specified and they 
 should not include the trailing slash
 
-`--only-down` Only synchronize from <S3Uri> to <LocalPath>
+`--only-down` Only synchronize from `<S3Uri>` to `<LocalPath>`
 
-`--only-up` Only synchronize from <LocalPath> to <S3Uri>
+`--only-up` Only synchronize from `<LocalPath>` to `<S3Uri>`
 
 `--poll | -p` frequency in seconds to check for both local and remote changes 
 and trigger the necessary synchronization - default is 30. Must be between 0 
