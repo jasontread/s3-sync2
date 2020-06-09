@@ -124,9 +124,9 @@ invoked when the script starts
 `--max-failures`max sychronization failures before exiting (0 for infinite). 
 Default is 3
 
-`--md5-skip-path | -s` by default, every file in <LocalPath> is used to 
+`--md5-skip-path | -s` by default, every file in `<LocalPath>` is used to 
 generate md5 checksums determining when contents have changed. The script 
-cannot translate --include/--exclude sync options to local file paths. Use this 
+cannot translate `--include/--exclude` sync options to local file paths. Use this 
 option to alter this behavior by specifying 1 or more paths in <LocalPath> to 
 exclude from checksum calculations. Do not repeat this option - if multiple 
 paths should be excluded, use pipes (|) to separate each. Each path designated 
