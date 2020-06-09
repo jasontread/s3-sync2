@@ -51,7 +51,7 @@ container instances could be challenging.
 ## Usage
 
 This script uses the following options and arguments. Some may also be set 
-using environment variables (uppercase/underscored values). The scripy does not 
+using environment variables (uppercase/underscored values). The script does not 
 daemonize - it will run continually until terminated. 
 
 ```
